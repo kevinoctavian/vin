@@ -7,6 +7,7 @@ exports.Otakudesu = void 0;
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
 const url_1 = require("url");
+const zs_extract_1 = require("zs-extract");
 class Otakudesu {
     get baseLink() {
         return "https://otakudesu.bid/";
@@ -103,7 +104,7 @@ class Otakudesu {
             const $ = (0, cheerio_1.load)(data);
             const downloads = await $(".download")
                 .find("li")
-                .map(async (i, el) => {
+                .map((i, el) => {
                 const e = $(el);
                 if (e.find("strong").text().toLowerCase().match(/mkv/g))
                     return;
@@ -124,10 +125,24 @@ class Otakudesu {
                 };
             })
                 .get();
+            for (const i in downloads) {
+                if (resolusi != "all") {
+                    if (downloads[i].resolusi !== resolusi)
+                        continue;
+                }
+                const url = downloads[i].url;
+                const { data } = await axios_1.default.get(url !== null && url !== void 0 ? url : "");
+                const loadZippyshare = (0, cheerio_1.load)(data);
+                let zippyUrl = loadZippyshare('meta[property="og:url"]').attr("content");
+                if (zippyUrl === null || zippyUrl === void 0 ? void 0 : zippyUrl.startsWith("//"))
+                    zippyUrl = "https:" + zippyUrl;
+                const dlUrl = (await (0, zs_extract_1.extract)(zippyUrl || "")).download;
+                downloads[i].url = dlUrl;
+            }
             if (resolusi === "all")
-                result = await downloads;
+                result = downloads;
             else
-                result = await downloads.filter(async (v) => { var _a; return ((_a = (await v)) === null || _a === void 0 ? void 0 : _a.resolusi) === resolusi; });
+                result = downloads.filter((v) => v.resolusi === resolusi);
         }
         return { status, result };
     }
